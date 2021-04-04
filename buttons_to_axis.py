@@ -1,4 +1,5 @@
 import gremlin
+from gremlin.spline import CubicSpline
 from gremlin.user_plugin import *
 
 import time
@@ -33,10 +34,15 @@ update_frequency = FloatVariable(
 )
 update_resolution = FloatVariable(
     "Update Resolution",
-    "Axis change per tick.",
+    "Axis change per tick (maximum).",
     0.1,
     -1.0,
     1.0
+)
+update_curve = StringVariable(
+    "Response Curve",
+    "Interpolation curve: LINEAR (default), SMOOTH, INVERTED",
+    "LINEAR"
 )
 
 decorator_e = btn_e.create_decorator(mode.value)
@@ -44,17 +50,57 @@ decorator_w = btn_w.create_decorator(mode.value)
 
 update_thread   = None
 state           = 0
+curves          = {
+    "LINEAR": CubicSpline([
+        (-1.0, -1.0),
+        ( 0.0,  0.0),
+        ( 1.0,  1.0)
+    ]),    
+    "SMOOTH": CubicSpline([
+        (-1.0, -1.0),
+        (-0.5, -0.25),
+        ( 0.0,  0.0),
+        ( 0.5,  0.25),
+        ( 1.0,  1.0)
+    ]),
+    "INVERTED": CubicSpline([
+        (-1.0, -1.0),
+        (-0.25, -0.5),
+        ( 0.0,  0.0),
+        ( 0.25,  0.5),
+        ( 1.0,  1.0)
+    ]),    
+    }
+
+# LINEAR
+#           =
+#      =
+# =
+
+# SMOOTH
+#           =
+#          =
+#      ==  
+#   =
+# =
+
+# INVERTED
+#          ==
+#       =
+#      =
+#     =
+# ==
 
 def update_axis_thread(vjoy):
-    global state
+    global state, curves
 
     freq_value      = update_frequency.value
     res_value       = update_resolution.value
-
-    tick_exec_flag  = True    
+    curve_value     = update_curve.value
     next_tick       = time.time() + freq_value
-    
+
     to_axis_value   = 0.0
+    time_held       = 0.0
 
     while(True):
         while time.time() < next_tick:
@@ -66,8 +112,10 @@ def update_axis_thread(vjoy):
             #gremlin.util.log(device.axis(vjoy_axis.value["input_id"]).value)            
             break            
         else:
-            to_axis_value = max(-1.0, min(1.0, to_axis_value + math.copysign(res_value, state)))
-            device.axis(vjoy_axis.value["input_id"]).value = round(to_axis_value, 3)
+            to_axis_value   = max(-1.0, min(1.0, to_axis_value + math.copysign(res_value, state)))
+            curve_axis_val  = curves[curve_value](to_axis_value)
+            device.axis(vjoy_axis.value["input_id"]).value = round(curve_axis_val, 3)
+            #gremlin.util.log("to_axis_value {} curve value {}".format(round(to_axis_value, 3), round(curve_axis_val, 3))
             #gremlin.util.log(device.axis(vjoy_axis.value["input_id"]).value)
             next_tick += freq_value
 
