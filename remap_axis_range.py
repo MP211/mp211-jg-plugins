@@ -92,7 +92,7 @@ def axis_remap(event, vjoy):
     device          = vjoy[vjoy_axis.value["device_id"]]
     val_on_curve    = curves[ update_curve.value ]( event.value )
     remapped_value  = (((val_on_curve - -1.0) * (new_max - new_min)) / (1.0 - -1.0)) + new_min
-    gremlin.util.log("{} => {}".format(event.value, remapped_value))
+    #gremlin.util.log("{} => {}".format(event.value, remapped_value))
 
     device.axis(vjoy_axis.value["input_id"]).value = round(remapped_value, 3)
 
