@@ -33,7 +33,7 @@ upper_bound = FloatVariable(
 )
 update_curve = StringVariable(
     "Response Curve",
-    "Interpolation curve: LINEAR (default), SMOOTH, INVERTED",
+    "Interpolation curve: LINEAR (default), EASEIN, EASEOUT",
     "LINEAR"
 )
 
@@ -44,21 +44,21 @@ curves          = {
         (-1.0, -1.0),
         ( 0.0,  0.0),
         ( 1.0,  1.0)
-    ]),    
-    "SMOOTH": CubicSpline([
+    ]),
+    "EASEIN": CubicSpline([
         (-1.0, -1.0),
         (-0.5, -0.25),
         ( 0.0,  0.0),
         ( 0.5,  0.25),
         ( 1.0,  1.0)
     ]),
-    "INVERTED": CubicSpline([
+    "EASEOUT": CubicSpline([
         (-1.0, -1.0),
         (-0.25, -0.5),
         ( 0.0,  0.0),
         ( 0.25,  0.5),
         ( 1.0,  1.0)
-    ]),    
+    ]),
     }
 
 # LINEAR
@@ -66,14 +66,14 @@ curves          = {
 #      =
 # =
 
-# SMOOTH
+# EASEIN
 #           =
 #          =
-#      ==  
+#      ==
 #   =
 # =
 
-# INVERTED
+# EASEOUT
 #          ==
 #       =
 #      =
@@ -86,13 +86,13 @@ def axis_remap(event, vjoy):
     new_min      = lower_bound.value
 
     if new_max <= new_min:
-        gremlin.util.log("remap_axis_range is not active; max is less than or equal to lower bound.")
+        #gremlin.util.log("remap_axis_range is not active; max is less than or equal to lower bound.")
         return
 
     device          = vjoy[vjoy_axis.value["device_id"]]
-    val_on_curve    = curves[ update_curve.value ]( event.value )
-    remapped_value  = (((val_on_curve - -1.0) * (new_max - new_min)) / (1.0 - -1.0)) + new_min
-    #gremlin.util.log("{} => {}".format(event.value, remapped_value))
+    curve_axis_val  = curves[ update_curve.value ]( event.value )
+    remapped_value  = (((curve_axis_val - -1.0) * (new_max - new_min)) / (1.0 - -1.0)) + new_min
+    #gremlin.util.log("{} => {}".format(event.value, round(remapped_value, 3)))
 
-    device.axis(vjoy_axis.value["input_id"]).value = round(remapped_value, 3)
+    device.axis(vjoy_axis.value["input_id"]).value = round(remapped_value, 5)
 

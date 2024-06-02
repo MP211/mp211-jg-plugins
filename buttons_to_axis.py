@@ -27,22 +27,27 @@ btn_w = PhysicalInputVariable(
 )
 update_frequency = FloatVariable(
     "Update Frequency",
-    "Axis update, seconds.",
+    "Axis update interval, seconds (0-1, default 0.01)",
     0.01,
     0.01,
     1.0
 )
 update_resolution = FloatVariable(
     "Update Resolution",
-    "Axis change per tick (maximum).",
+    "Axis change per tick (0-1, default 0.01).",
     0.1,
     -1.0,
     1.0
 )
 update_curve = StringVariable(
     "Response Curve",
-    "Interpolation curve: LINEAR (default), SMOOTH, INVERTED",
+    "Interpolation curve: LINEAR (default), EASEIN, EASEOUT",
     "LINEAR"
+)
+sticky_value = BoolVariable(
+    "Sticky Value?",
+    "Additive axis value between input events (default On)",
+    True
 )
 
 decorator_e = btn_e.create_decorator(mode.value)
@@ -50,26 +55,27 @@ decorator_w = btn_w.create_decorator(mode.value)
 
 update_thread   = None
 state           = 0
+to_axis_value   = 0.0
 curves          = {
     "LINEAR": CubicSpline([
         (-1.0, -1.0),
         ( 0.0,  0.0),
         ( 1.0,  1.0)
-    ]),    
-    "SMOOTH": CubicSpline([
+    ]),
+    "EASEIN": CubicSpline([
         (-1.0, -1.0),
         (-0.5, -0.25),
         ( 0.0,  0.0),
         ( 0.5,  0.25),
         ( 1.0,  1.0)
     ]),
-    "INVERTED": CubicSpline([
+    "EASEOUT": CubicSpline([
         (-1.0, -1.0),
         (-0.25, -0.5),
         ( 0.0,  0.0),
         ( 0.25,  0.5),
         ( 1.0,  1.0)
-    ]),    
+    ]),
     }
 
 # LINEAR
@@ -77,14 +83,14 @@ curves          = {
 #      =
 # =
 
-# SMOOTH
+# EASEIN
 #           =
 #          =
-#      ==  
+#      ==
 #   =
 # =
 
-# INVERTED
+# EASEOUT
 #          ==
 #       =
 #      =
@@ -92,14 +98,13 @@ curves          = {
 # ==
 
 def update_axis_thread(vjoy):
-    global state, curves
+    global state, curves, to_axis_value
 
     freq_value      = update_frequency.value
     res_value       = update_resolution.value
     curve_value     = update_curve.value
     next_tick       = time.time() + freq_value
 
-    to_axis_value   = 0.0
     time_held       = 0.0
 
     while(True):
@@ -108,18 +113,19 @@ def update_axis_thread(vjoy):
 
         device = vjoy[vjoy_axis.value["device_id"]]
         if state == 0:
-            device.axis(vjoy_axis.value["input_id"]).value = 0
-            #gremlin.util.log(device.axis(vjoy_axis.value["input_id"]).value)            
-            break            
+            if sticky_value.value is False:
+                to_axis_value = 0.0
+                device.axis(vjoy_axis.value["input_id"]).value = 0.0
+            break
         else:
             to_axis_value   = max(-1.0, min(1.0, to_axis_value + math.copysign(res_value, state)))
             curve_axis_val  = curves[curve_value](to_axis_value)
-            device.axis(vjoy_axis.value["input_id"]).value = round(curve_axis_val, 3)
-            #gremlin.util.log("to_axis_value {} curve value {}".format(round(to_axis_value, 3), round(curve_axis_val, 3))
-            #gremlin.util.log(device.axis(vjoy_axis.value["input_id"]).value)
+            #gremlin.util.log("to_axis_value {} curve value {}".format(round(to_axis_value, 3), round(curve_axis_val, 3)))
+            device.axis(vjoy_axis.value["input_id"]).value = round(curve_axis_val, 5)
             next_tick += freq_value
 
-    self.join()
+    # is this necessary?
+    threading.current_thread().join()
 
 
 def ensure_axis_thread(vjoy):
