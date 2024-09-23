@@ -105,23 +105,19 @@ def update_axis_thread(vjoy):
     curve_value     = update_curve.value
     next_tick       = time.time() + freq_value
 
-    time_held       = 0.0
-
     while(True):
         while time.time() < next_tick:
             time.sleep(0.0001)
 
-        device = vjoy[vjoy_axis.value["device_id"]]
         if state == 0:
-            if sticky_value.value is False:
-                to_axis_value = 0.0
-                device.axis(vjoy_axis.value["input_id"]).value = 0.0
+            if bool(sticky_value.value) is False:
+                set_axis_value(vjoy, 0.0, 0.0)
             break
         else:
             to_axis_value   = max(-1.0, min(1.0, to_axis_value + math.copysign(res_value, state)))
             curve_axis_val  = curves[curve_value](to_axis_value)
             #gremlin.util.log("to_axis_value {} curve value {}".format(round(to_axis_value, 3), round(curve_axis_val, 3)))
-            device.axis(vjoy_axis.value["input_id"]).value = round(curve_axis_val, 5)
+            set_axis_value(vjoy, to_axis_value, round(curve_axis_val, 5))
             next_tick += freq_value
 
     # is this necessary?
@@ -135,11 +131,17 @@ def ensure_axis_thread(vjoy):
         update_thread.start()
 
 
+def set_axis_value(vjoy, raw_value, dev_value):
+    global to_axis_value
+    to_axis_value = raw_value
+    vjoy[vjoy_axis.value["device_id"]].axis(vjoy_axis.value["input_id"]).value = dev_value
+    gremlin.util.log("state {} sticky? {} to_axis_value {}".format(state, sticky_value.value, round(to_axis_value, 3)))
+
 # positive
 @decorator_e.button(btn_e.input_id)
 def button_e(event, vjoy):
     global state
-    state = 1.0 if event.is_pressed else 0
+    state = 1 if event.is_pressed else 0
     ensure_axis_thread(vjoy)
 
 
@@ -147,5 +149,5 @@ def button_e(event, vjoy):
 @decorator_w.button(btn_w.input_id)
 def button_w(event, vjoy):
     global state
-    state = -1.0 if event.is_pressed else 0
+    state = -1 if event.is_pressed else 0
     ensure_axis_thread(vjoy)
